@@ -24,11 +24,31 @@ public sealed class AppSettings
 public sealed class UsageData
 {
     public Dictionary<string,Dictionary<string,double>> Days {get;set;}=new();
+    public List<SessionRecord> Sessions {get;set;}=new();
     private static string PathName=>Path.Combine(AppSettings.Folder,"usage.json");
     public static UsageData Load(){try{return JsonSerializer.Deserialize<UsageData>(File.ReadAllText(PathName))??new();}catch{return new();}}
     public void Add(string process,double seconds){var d=DateTime.Now.ToString("yyyy-MM-dd");if(!Days.TryGetValue(d,out var apps))Days[d]=apps=new();apps[process]=apps.GetValueOrDefault(process)+seconds;Save();}
     public void Save(){Directory.CreateDirectory(AppSettings.Folder);File.WriteAllText(PathName,JsonSerializer.Serialize(this));}
     public Dictionary<string,double> ForDay(DateTime date)=>Days.GetValueOrDefault(date.ToString("yyyy-MM-dd"))??new();
     public Dictionary<string,double> LastDays(int count){var result=new Dictionary<string,double>();for(int i=0;i<count;i++)foreach(var x in ForDay(DateTime.Today.AddDays(-i)))result[x.Key]=result.GetValueOrDefault(x.Key)+x.Value;return result;}
-    public void Clear(){Days.Clear();Save();}
+    public void Clear(){Days.Clear();Sessions.Clear();Save();}
+    public SessionRecord StartSession()
+    {
+        var now=DateTime.Now;
+        var old=Sessions.LastOrDefault(x=>x.End==null);
+        if(old!=null)old.End=old.LastSeen;
+        var session=new SessionRecord{Start=now,LastSeen=now};Sessions.Add(session);Save();return session;
+    }
+    public void Heartbeat(SessionRecord session){session.LastSeen=DateTime.Now;Save();}
+    public void EndSession(SessionRecord session){session.LastSeen=DateTime.Now;session.End=session.LastSeen;Save();}
+    public IEnumerable<SessionRecord> SessionsForDay(DateTime day)=>Sessions.Where(x=>x.Start.Date==day.Date);
+    public double PoweredSeconds(DateTime day)=>SessionsForDay(day).Sum(x=>((x.End??x.LastSeen)-x.Start).TotalSeconds);
+    public double TotalPoweredSeconds()=>Sessions.Sum(x=>((x.End??x.LastSeen)-x.Start).TotalSeconds);
+}
+
+public sealed class SessionRecord
+{
+    public DateTime Start {get;set;}
+    public DateTime? End {get;set;}
+    public DateTime LastSeen {get;set;}
 }

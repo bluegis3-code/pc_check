@@ -11,7 +11,10 @@ internal static class Program
     {
         mutex = new Mutex(true, "PCCheck_SingleInstance_8F25A", out var first);
         if (!first) { MessageBox.Show("PC Check가 이미 실행 중입니다.", "PC Check"); return; }
-        ApplicationConfiguration.Initialize();
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        Application.SetDefaultFont(new Font("Malgun Gothic",11F));
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
         var settings=AppSettings.Load();
         if(!ParentSecurity.IsConfigured(settings))
         {
