@@ -1,45 +1,42 @@
-using System.Drawing.Drawing2D;
-
 namespace PCCheck;
+
 public sealed class MainForm:Form
 {
     AppSettings settings=AppSettings.Load();readonly UsageData data=UsageData.Load();readonly UsageTracker tracker;readonly NotifyIcon tray=new();
-    readonly Label todayValue=new(),weekValue=new(),status=new();readonly ListView list=new();Button pause=new(); readonly System.Windows.Forms.Timer refresh=new(){Interval=30000};
-    bool allowExit;string lastSummary="";
-    readonly Color navy=Color.FromArgb(24,34,54),blue=Color.FromArgb(42,116,245),bg=Color.FromArgb(245,247,251);
+    readonly Label today=new(),week=new(),state=new(),topApp=new(),attempts=new();readonly ListView appList=new(),securityList=new();Button pause=new();bool allowExit;
+    readonly Color dark=Color.FromArgb(27,38,59),blue=Color.FromArgb(45,112,240),green=Color.FromArgb(28,167,112),page=Color.FromArgb(242,245,250);
     public MainForm()
     {
-        Text="PC Check";Size=new Size(860,640);MinimumSize=new Size(760,560);StartPosition=FormStartPosition.CenterScreen;BackColor=bg;Font=new Font("맑은 고딕",10);Icon=SystemIcons.Application;
-        BuildUi();tracker=new UsageTracker(settings,data);tracker.Updated+=()=>BeginInvoke(RefreshData);refresh.Tick+=(s,e)=>{RefreshData();CheckSummary();};refresh.Start();
-        tray.Icon=SystemIcons.Application;tray.Text="PC Check - 사용시간 기록 중";tray.Visible=true;tray.DoubleClick+=(s,e)=>ShowWindow();tray.ContextMenuStrip=TrayMenu();
-        FormClosing+=OnFormClosing;Shown+=async(s,e)=>{RefreshData();if(Environment.GetCommandLineArgs().Contains("--background"))Hide();if(settings.SendStartMail&&settings.Sender!="")await SafeMail($"[{settings.DeviceName}] PC 시작",$"PC가 시작되었습니다.\r\n시각: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");};
+        Text="PC Check - PC 사용시간";Size=new Size(1080,760);MinimumSize=new Size(900,650);StartPosition=FormStartPosition.CenterScreen;BackColor=page;Font=new Font("맑은 고딕",12);Icon=SystemIcons.Shield;
+        Build();tracker=new UsageTracker(settings,data);tracker.Updated+=()=>BeginInvoke(RefreshView);
+        var timer=new System.Windows.Forms.Timer{Interval=20000};timer.Tick+=(s,e)=>RefreshView();timer.Start();
+        tray.Icon=SystemIcons.Shield;tray.Text="PC Check - 사용시간 기록 중";tray.Visible=true;tray.DoubleClick+=(s,e)=>ShowWindow();tray.ContextMenuStrip=TrayMenu();
+        Shown+=(s,e)=>{RefreshView();AppSettings.SetAutoStart(true);if(Environment.GetCommandLineArgs().Contains("--background"))Hide();};FormClosing+=OnClosing;
     }
-    void BuildUi()
+    void Build()
     {
-        var header=new Panel{Dock=DockStyle.Top,Height=86,BackColor=navy};Controls.Add(header);
-        header.Controls.Add(new Label{Text="PC Check",ForeColor=Color.White,Font=new Font("맑은 고딕",22,FontStyle.Bold),AutoSize=true,Location=new Point(28,17)});
-        status.Text="● 기록 중";status.ForeColor=Color.FromArgb(82,220,155);status.AutoSize=true;status.Location=new Point(31,58);header.Controls.Add(status);
-        var settingsBtn=ButtonOf("설정",110,30);settingsBtn.Anchor=AnchorStyles.Top|AnchorStyles.Right;settingsBtn.Location=new Point(ClientSize.Width-138,25);settingsBtn.Click+=(s,e)=>OpenSettings();header.Controls.Add(settingsBtn);header.Resize+=(s,e)=>settingsBtn.Left=header.ClientSize.Width-138;
-        var cards=new TableLayoutPanel{Dock=DockStyle.Top,Height=150,Padding=new Padding(24,20,24,10),ColumnCount=2};cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));Controls.Add(cards);
-        cards.Controls.Add(Card("오늘 사용시간",todayValue),0,0);cards.Controls.Add(Card("최근 7일",weekValue),1,0);
-        var actions=new Panel{Dock=DockStyle.Top,Height=62,Padding=new Padding(24,8,24,8)};Controls.Add(actions);
-        pause=ButtonOf("기록 일시정지",145,38);pause.Click+=(s,e)=>Toggle();actions.Controls.Add(pause);
-        var mail=ButtonOf("오늘 요약 메일",155,38);mail.Left=158;mail.Click+=async(s,e)=>await SendToday();actions.Controls.Add(mail);
-        var clear=ButtonOf("기록 삭제",115,38);clear.Left=326;clear.Click+=(s,e)=>ClearData();actions.Controls.Add(clear);
-        var body=new Panel{Dock=DockStyle.Fill,Padding=new Padding(24,8,24,24)};Controls.Add(body);
-        body.Controls.Add(new Label{Text="오늘 프로그램별 사용시간",Dock=DockStyle.Top,Height=34,Font=new Font("맑은 고딕",13,FontStyle.Bold),ForeColor=navy});
-        list.Dock=DockStyle.Fill;list.View=View.Details;list.FullRowSelect=true;list.GridLines=false;list.BorderStyle=BorderStyle.FixedSingle;list.Columns.Add("프로그램",480);list.Columns.Add("사용시간",180);body.Controls.Add(list);list.BringToFront();
+        var header=new Panel{Dock=DockStyle.Top,Height=112,BackColor=dark};Controls.Add(header);
+        header.Controls.Add(new Label{Text="PC 사용시간",ForeColor=Color.White,Font=new Font("맑은 고딕",27,FontStyle.Bold),Location=new Point(34,19),AutoSize=true});
+        state.Text="● 정상 기록 중";state.ForeColor=Color.FromArgb(92,225,164);state.Font=new Font("맑은 고딕",13,FontStyle.Bold);state.Location=new Point(38,70);state.AutoSize=true;header.Controls.Add(state);
+        var manage=BigButton("관리 설정",150);manage.Location=new Point(880,31);manage.Anchor=AnchorStyles.Top|AnchorStyles.Right;manage.Click+=(s,e)=>OpenSettings();header.Controls.Add(manage);header.Resize+=(s,e)=>manage.Left=header.ClientSize.Width-184;
+        var tabs=new TabControl{Dock=DockStyle.Fill,Font=new Font("맑은 고딕",13,FontStyle.Bold),Padding=new Point(22,10)};Controls.Add(tabs);
+        var dash=new TabPage("한눈에 보기"){BackColor=page,Padding=new Padding(24)};var details=new TabPage("프로그램별 기록"){BackColor=page,Padding=new Padding(24)};var protect=new TabPage("보호 기록"){BackColor=page,Padding=new Padding(24)};tabs.TabPages.AddRange([dash,details,protect]);
+        var cards=new TableLayoutPanel{Dock=DockStyle.Top,Height=190,ColumnCount=3,Padding=new Padding(0,8,0,14)};for(int i=0;i<3;i++)cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,33.33f));dash.Controls.Add(cards);
+        cards.Controls.Add(Card("오늘 사용시간",today,"실제로 화면을 사용한 시간"),0,0);cards.Controls.Add(Card("최근 7일",week,"지난 7일간 누적 시간"),1,0);cards.Controls.Add(Card("가장 많이 사용",topApp,"오늘 가장 오래 쓴 프로그램"),2,0);
+        var guide=new Panel{Dock=DockStyle.Top,Height=145,BackColor=Color.White,Padding=new Padding(26)};dash.Controls.Add(guide);guide.BringToFront();guide.Controls.Add(new Label{Text="현재 PC Check가 정상적으로 작동하고 있습니다",Dock=DockStyle.Top,Height=40,Font=new Font("맑은 고딕",17,FontStyle.Bold),ForeColor=dark});guide.Controls.Add(new Label{Text="창을 닫아도 기록은 계속됩니다. 5분 이상 키보드나 마우스를 사용하지 않으면 사용시간에서 자동으로 제외됩니다.",Dock=DockStyle.Bottom,Height=55,Font=new Font("맑은 고딕",12),ForeColor=Color.DimGray});
+        var buttons=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=82,Padding=new Padding(0,18,0,0)};dash.Controls.Add(buttons);pause=BigButton("기록 일시정지",190);pause.Click+=(s,e)=>ToggleTracking();var settingsBtn=BigButton("관리 설정 열기",190);settingsBtn.Click+=(s,e)=>OpenSettings();buttons.Controls.AddRange([pause,settingsBtn]);
+        appList.Dock=DockStyle.Fill;appList.View=View.Details;appList.FullRowSelect=true;appList.Font=new Font("맑은 고딕",14);appList.Columns.Add("사용한 프로그램",600);appList.Columns.Add("오늘 사용시간",260);details.Controls.Add(appList);details.Controls.Add(new Label{Text="오늘 사용한 프로그램",Dock=DockStyle.Top,Height=52,Font=new Font("맑은 고딕",20,FontStyle.Bold),ForeColor=dark});
+        securityList.Dock=DockStyle.Fill;securityList.View=View.Details;securityList.FullRowSelect=true;securityList.Font=new Font("맑은 고딕",13);securityList.Columns.Add("날짜와 시각",230);securityList.Columns.Add("시도한 작업",350);securityList.Columns.Add("결과",300);protect.Controls.Add(securityList);protect.Controls.Add(new Label{Text="종료·삭제·설정 변경 시도 기록",Dock=DockStyle.Top,Height=52,Font=new Font("맑은 고딕",20,FontStyle.Bold),ForeColor=dark});
     }
-    Panel Card(string title,Label value){var p=new Panel{Margin=new Padding(8),BackColor=Color.White};p.Paint+=(s,e)=>{using var pen=new Pen(Color.FromArgb(225,230,240));e.Graphics.DrawRectangle(pen,0,0,p.Width-1,p.Height-1);};p.Controls.Add(new Label{Text=title,Location=new Point(22,18),AutoSize=true,ForeColor=Color.DimGray});value.Text="0분";value.Location=new Point(20,50);value.AutoSize=true;value.Font=new Font("맑은 고딕",25,FontStyle.Bold);value.ForeColor=navy;p.Controls.Add(value);return p;}
-    Button ButtonOf(string text,int w,int h)=>new(){Text=text,Width=w,Height=h,FlatStyle=FlatStyle.Flat,BackColor=Color.White,ForeColor=navy};
-    void RefreshData(){var today=data.ForDay(DateTime.Today);todayValue.Text=MailService.Duration(today.Values.Sum());weekValue.Text=MailService.Duration(data.LastDays(7).Values.Sum());list.BeginUpdate();list.Items.Clear();foreach(var x in today.OrderByDescending(x=>x.Value)){var i=new ListViewItem(x.Key);i.SubItems.Add(MailService.Duration(x.Value));list.Items.Add(i);}list.EndUpdate();}
-    void Toggle(){if(tracker.Running){tracker.Pause();pause.Text="기록 다시 시작";status.Text="● 일시정지";status.ForeColor=Color.Orange;}else{tracker.Resume();pause.Text="기록 일시정지";status.Text="● 기록 중";status.ForeColor=Color.FromArgb(82,220,155);}}
-    async Task SendToday(){try{await MailService.Send(settings,$"[{settings.DeviceName}] 오늘 PC 사용 {MailService.Duration(data.ForDay(DateTime.Today).Values.Sum())}",MailService.Summary(settings,data,DateTime.Today));MessageBox.Show("요약 메일을 보냈습니다.","PC Check");}catch(Exception ex){MessageBox.Show("메일 발송 실패\r\n"+ex.Message,"PC Check");}}
-    async Task SafeMail(string subject,string body){try{await MailService.Send(settings,subject,body);}catch{}}
-    async void CheckSummary(){if(!settings.SendDailySummary||settings.Sender=="")return;if(TimeSpan.TryParse(settings.SummaryTime,out var t)&&DateTime.Now.TimeOfDay>=t&&lastSummary!=DateTime.Today.ToString("yyyy-MM-dd")){lastSummary=DateTime.Today.ToString("yyyy-MM-dd");await SafeMail($"[{settings.DeviceName}] 오늘 PC 사용 {MailService.Duration(data.ForDay(DateTime.Today).Values.Sum())}",MailService.Summary(settings,data,DateTime.Today));}}
-    void ClearData(){if(MessageBox.Show("모든 사용 기록을 삭제할까요?","기록 삭제",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)==DialogResult.Yes){data.Clear();RefreshData();}}
-    void OpenSettings(){using var f=new SettingsForm(settings);if(f.ShowDialog()==DialogResult.OK){settings=AppSettings.Load();tracker.UpdateSettings(settings);}}
-    ContextMenuStrip TrayMenu(){var m=new ContextMenuStrip();m.Items.Add("PC Check 열기",null,(s,e)=>ShowWindow());m.Items.Add("기록 일시정지/시작",null,(s,e)=>Toggle());m.Items.Add("종료",null,(s,e)=>{allowExit=true;Close();});return m;}
+    Panel Card(string title,Label value,string note){var p=new Panel{Margin=new Padding(8),BackColor=Color.White,Padding=new Padding(24)};p.Controls.Add(new Label{Text=title,Dock=DockStyle.Top,Height=34,Font=new Font("맑은 고딕",13,FontStyle.Bold),ForeColor=Color.DimGray});value.Text="0분";value.Dock=DockStyle.Top;value.Height=62;value.Font=new Font("맑은 고딕",25,FontStyle.Bold);value.ForeColor=dark;p.Controls.Add(value);value.BringToFront();p.Controls.Add(new Label{Text=note,Dock=DockStyle.Bottom,Height=30,ForeColor=Color.Gray});return p;}
+    Button BigButton(string text,int width)=>new(){Text=text,Width=width,Height=48,FlatStyle=FlatStyle.Flat,BackColor=Color.White,ForeColor=dark,Font=new Font("맑은 고딕",12,FontStyle.Bold),Margin=new Padding(0,0,14,0)};
+    void RefreshView(){var d=data.ForDay(DateTime.Today);var total=d.Values.Sum();today.Text=Format(total);week.Text=Format(data.LastDays(7).Values.Sum());var top=d.OrderByDescending(x=>x.Value).FirstOrDefault();topApp.Text=top.Key??"아직 없음";appList.BeginUpdate();appList.Items.Clear();foreach(var x in d.OrderByDescending(x=>x.Value)){var i=new ListViewItem(x.Key);i.SubItems.Add(Format(x.Value));appList.Items.Add(i);}appList.EndUpdate();LoadSecurity();}
+    static string Format(double sec){var t=TimeSpan.FromSeconds(sec);return t.TotalHours>=1?$"{(int)t.TotalHours}시간 {t.Minutes}분":$"{Math.Max(0,(int)Math.Round(t.TotalMinutes))}분";}
+    void LoadSecurity(){securityList.Items.Clear();var path=Path.Combine(AppSettings.Folder,"보호기록.txt");if(!File.Exists(path))return;foreach(var line in File.ReadLines(path).Reverse().Take(100)){var p=line.Split('|');if(p.Length<3)continue;var i=new ListViewItem(p[0].Trim());i.SubItems.Add(p[1].Trim());i.SubItems.Add(p[2].Trim());securityList.Items.Add(i);}}
+    void ToggleTracking(){if(!ParentSecurity.Ask(this,settings,tracker.Running?"사용시간 기록 일시정지":"사용시간 기록 다시 시작"))return;if(tracker.Running){tracker.Pause();pause.Text="기록 다시 시작";state.Text="● 부모가 기록을 일시정지함";state.ForeColor=Color.Orange;}else{tracker.Resume();pause.Text="기록 일시정지";state.Text="● 정상 기록 중";state.ForeColor=Color.FromArgb(92,225,164);}}
+    void OpenSettings(){using var f=new SettingsForm(settings);if(f.ShowDialog()==DialogResult.OK){settings=AppSettings.Load();tracker.UpdateSettings(settings);RefreshView();}}
+    ContextMenuStrip TrayMenu(){var m=new ContextMenuStrip{Font=new Font("맑은 고딕",11)};m.Items.Add("PC Check 열기",null,(s,e)=>ShowWindow());m.Items.Add("프로그램 종료",null,(s,e)=>TryExit());return m;}
     void ShowWindow(){Show();WindowState=FormWindowState.Normal;Activate();}
-    async void OnFormClosing(object? s,FormClosingEventArgs e){if(!allowExit&&e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();return;}tray.Visible=false;tracker.Dispose();if(settings.Sender!="")await SafeMail($"[{settings.DeviceName}] PC 종료",$"PC 사용이 종료되었습니다.\r\n시각: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");}
+    void TryExit(){if(ParentSecurity.Ask(this,settings,"PC Check 종료")){allowExit=true;Close();}}
+    void OnClosing(object? s,FormClosingEventArgs e){if(!allowExit){e.Cancel=true;Hide();return;}tray.Visible=false;tracker.Dispose();}
 }

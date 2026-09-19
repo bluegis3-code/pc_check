@@ -6,14 +6,9 @@ namespace PCCheck;
 public sealed class AppSettings
 {
     public string DeviceName { get; set; } = Environment.MachineName;
-    public string Provider { get; set; } = "Gmail";
-    public string Sender { get; set; } = "";
-    public string Recipient { get; set; } = "";
-    public string ProtectedPassword { get; set; } = "";
-    public string SummaryTime { get; set; } = "22:00";
     public int IdleMinutes { get; set; } = 5;
-    public bool SendStartMail { get; set; } = true;
-    public bool SendDailySummary { get; set; } = true;
+    public string PasswordSalt { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PCCheck");
     private static string FilePath => Path.Combine(Folder,"settings.json");
     public static AppSettings Load(){ Directory.CreateDirectory(Folder); try{return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath))??new();}catch{return new();} }

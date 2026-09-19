@@ -12,6 +12,13 @@ internal static class Program
         mutex = new Mutex(true, "PCCheck_SingleInstance_8F25A", out var first);
         if (!first) { MessageBox.Show("PC Check가 이미 실행 중입니다.", "PC Check"); return; }
         ApplicationConfiguration.Initialize();
+        var settings=AppSettings.Load();
+        if(!ParentSecurity.IsConfigured(settings))
+        {
+            using var setup=new FirstRunForm(settings);
+            if(setup.ShowDialog()!=DialogResult.OK)return;
+        }
+        AppSettings.SetAutoStart(true);
         Application.Run(new MainForm());
     }
 }
