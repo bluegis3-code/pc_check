@@ -3,7 +3,7 @@ namespace PCCheck;
 public sealed class MainForm:Form
 {
     AppSettings settings=AppSettings.Load();readonly UsageData data=UsageData.Load();readonly UsageTracker tracker;readonly NotifyIcon tray=new();
-    readonly Label powered=new(),active=new(),started=new(),allTime=new(),state=new();readonly ListView appList=new(),dailyList=new(),sessionList=new(),securityList=new();Button pause=new();bool allowExit;
+    readonly Label powered=new(),started=new(),allTime=new(),state=new();readonly ListView weekList=new(),appList=new(),dailyList=new(),sessionList=new(),securityList=new();Button pause=new();bool allowExit;
     readonly Color dark=Color.FromArgb(27,38,59),page=Color.FromArgb(242,245,250),blue=Color.FromArgb(45,112,240);
     public MainForm()
     {
@@ -31,18 +31,22 @@ public sealed class MainForm:Form
     TabPage Page(string text)=>new(text){BackColor=page,Padding=new Padding(22)};
     void BuildDashboard(TabPage pageTab)
     {
-        var outer=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,Padding=new Padding(2)};outer.RowStyles.Add(new RowStyle(SizeType.Absolute,340));outer.RowStyles.Add(new RowStyle(SizeType.Absolute,145));outer.RowStyles.Add(new RowStyle(SizeType.Percent,100));pageTab.Controls.Add(outer);
-        var cards=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=2};cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));cards.RowStyles.Add(new RowStyle(SizeType.Percent,50));cards.RowStyles.Add(new RowStyle(SizeType.Percent,50));outer.Controls.Add(cards,0,0);
-        cards.Controls.Add(Card("오늘 PC 사용시간",powered,"오늘 PC Check가 실행된 전체 시간"),0,0);cards.Controls.Add(Card("오늘 프로그램 기록시간",active,"프로그램별 사용시간의 합계"),1,0);cards.Controls.Add(Card("현재 PC 시작 시각",started,"Windows 로그인 후 기록 시작 시각"),0,1);cards.Controls.Add(Card("전체 누적 PC 사용시간",allTime,"PC Check 설치 후 누적 기록"),1,1);
-        var info=new Panel{Dock=DockStyle.Fill,Margin=new Padding(8,10,8,8),BackColor=Color.White};outer.Controls.Add(info,0,1);info.Controls.Add(new Label{Text="현재 정상적으로 기록하고 있습니다",Location=new Point(28,22),Size=new Size(760,38),Font=new Font("Malgun Gothic",17,FontStyle.Bold),ForeColor=dark});info.Controls.Add(new Label{Text="창을 닫아도 기록은 계속되며 PC를 다시 켜면 자동으로 실행됩니다.",Location=new Point(30,70),Size=new Size(970,32),Font=new Font("Malgun Gothic",12),ForeColor=Color.DimGray});
-        var actions=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(8,20,0,0)};outer.Controls.Add(actions,0,2);pause=BigButton("기록 일시정지",200);pause.Click+=(s,e)=>ToggleTracking();var settingsBtn=BigButton("관리 설정 열기",200);settingsBtn.Click+=(s,e)=>OpenSettings();actions.Controls.AddRange([pause,settingsBtn]);
+        var outer=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,Padding=new Padding(2)};outer.RowStyles.Add(new RowStyle(SizeType.Absolute,190));outer.RowStyles.Add(new RowStyle(SizeType.Percent,100));outer.RowStyles.Add(new RowStyle(SizeType.Absolute,78));pageTab.Controls.Add(outer);
+        var cards=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=3,RowCount=1};cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,33.33F));cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,33.33F));cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,33.34F));outer.Controls.Add(cards,0,0);
+        cards.Controls.Add(Card("오늘 PC 사용시간",powered,"오늘 PC를 사용한 전체 시간"),0,0);cards.Controls.Add(Card("오늘 시작 시각",started,"오늘 PC Check가 처음 실행된 시각"),1,0);cards.Controls.Add(Card("전체 누적 사용시간",allTime,"PC Check 설치 후 누적 기록"),2,0);
+
+        var weekPanel=new Panel{Dock=DockStyle.Fill,Margin=new Padding(8,4,8,4),Padding=new Padding(24,14,24,18),BackColor=Color.White};outer.Controls.Add(weekPanel,0,1);
+        weekPanel.Controls.Add(new Label{Text="최근 7일 사용 기록",Dock=DockStyle.Top,Height=48,Font=new Font("Malgun Gothic",17,FontStyle.Bold),ForeColor=dark});
+        weekList.Dock=DockStyle.Fill;weekList.View=View.Details;weekList.FullRowSelect=true;weekList.GridLines=true;weekList.HideSelection=false;weekList.HeaderStyle=ColumnHeaderStyle.Nonclickable;weekList.Font=new Font("Malgun Gothic",12);weekList.Columns.Add("날짜",240);weekList.Columns.Add("PC 사용시간",220);weekList.Columns.Add("시작 시각",200);weekList.Columns.Add("종료 시각",220);weekPanel.Controls.Add(weekList);weekList.BringToFront();
+
+        var actions=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(8,14,0,0)};outer.Controls.Add(actions,0,2);pause=BigButton("기록 일시정지",200);pause.Click+=(s,e)=>ToggleTracking();var settingsBtn=BigButton("관리 설정 열기",200);settingsBtn.Click+=(s,e)=>OpenSettings();actions.Controls.AddRange([pause,settingsBtn]);
     }
     Panel Card(string title,Label value,string note)
     {
         var p=new Panel{Dock=DockStyle.Fill,Margin=new Padding(8),BackColor=Color.White};
-        p.Controls.Add(new Label{Text=title,Location=new Point(26,18),Size=new Size(470,30),Font=new Font("Malgun Gothic",14,FontStyle.Bold),ForeColor=Color.FromArgb(90,98,112)});
-        value.Text="확인 중";value.Location=new Point(25,55);value.Size=new Size(480,52);value.Font=new Font("Malgun Gothic",25,FontStyle.Bold);value.ForeColor=dark;value.AutoEllipsis=true;p.Controls.Add(value);
-        p.Controls.Add(new Label{Text=note,Location=new Point(27,118),Size=new Size(470,26),Font=new Font("Malgun Gothic",10),ForeColor=Color.Gray,AutoEllipsis=true});return p;
+        p.Controls.Add(new Label{Text=title,Location=new Point(24,18),Size=new Size(315,32),Font=new Font("Malgun Gothic",13,FontStyle.Bold),ForeColor=Color.FromArgb(90,98,112),AutoEllipsis=true});
+        value.Text="확인 중";value.Location=new Point(22,54);value.Size=new Size(330,58);value.Font=new Font("Malgun Gothic",22,FontStyle.Bold);value.ForeColor=dark;value.TextAlign=ContentAlignment.MiddleLeft;value.AutoEllipsis=true;p.Controls.Add(value);
+        p.Controls.Add(new Label{Text=note,Location=new Point(24,124),Size=new Size(320,28),Font=new Font("Malgun Gothic",9.5F),ForeColor=Color.Gray,AutoEllipsis=true});return p;
     }
     void BuildListPage(TabPage tab,ListView list,string title,(string,int)[] columns)
     {
@@ -51,7 +55,8 @@ public sealed class MainForm:Form
     Button BigButton(string text,int width)=>new(){Text=text,Width=width,Height=50,FlatStyle=FlatStyle.Flat,BackColor=Color.White,ForeColor=dark,Font=new Font("Malgun Gothic",12,FontStyle.Bold),Margin=new Padding(0,0,14,0)};
     void RefreshView()
     {
-        var today=data.ForDay(DateTime.Today);powered.Text=Format(data.PoweredSeconds(DateTime.Today));active.Text=Format(today.Values.Sum());var current=data.Sessions.LastOrDefault(x=>x.End==null);started.Text=current==null?"기록 없음":current.Start.ToString("HH:mm:ss");allTime.Text=Format(data.TotalPoweredSeconds());
+        var today=data.ForDay(DateTime.Today);powered.Text=Format(data.PoweredSeconds(DateTime.Today));var todaySessions=data.SessionsForDay(DateTime.Today).OrderBy(x=>x.Start).ToList();started.Text=todaySessions.Count==0?"기록 없음":todaySessions.First().Start.ToString("HH:mm:ss");allTime.Text=Format(data.TotalPoweredSeconds());
+        weekList.BeginUpdate();weekList.Items.Clear();for(int n=0;n<7;n++){var day=DateTime.Today.AddDays(-n);var ss=data.SessionsForDay(day).OrderBy(x=>x.Start).ToList();var row=new ListViewItem(day.ToString("M월 d일 (ddd)"));row.SubItems.Add(Format(data.PoweredSeconds(day)));row.SubItems.Add(ss.Count==0?"-":ss.First().Start.ToString("HH:mm:ss"));var last=ss.LastOrDefault();row.SubItems.Add(last==null?"-":last.End?.ToString("HH:mm:ss")??"현재 사용 중");weekList.Items.Add(row);}weekList.EndUpdate();
         appList.BeginUpdate();appList.Items.Clear();foreach(var x in today.OrderByDescending(x=>x.Value)){var i=new ListViewItem(DisplayName(x.Key));i.SubItems.Add(Format(x.Value));appList.Items.Add(i);}appList.EndUpdate();
         dailyList.BeginUpdate();dailyList.Items.Clear();for(int n=0;n<30;n++){var day=DateTime.Today.AddDays(-n);var ss=data.SessionsForDay(day).OrderBy(x=>x.Start).ToList();var row=new ListViewItem(day.ToString("yyyy-MM-dd (ddd)"));row.SubItems.Add(Format(data.PoweredSeconds(day)));row.SubItems.Add(Format(data.ForDay(day).Values.Sum()));row.SubItems.Add(ss.Count==0?"-":ss.First().Start.ToString("HH:mm:ss"));var last=ss.LastOrDefault();row.SubItems.Add(last==null?"-":last.End?.ToString("HH:mm:ss")??"현재 사용 중");dailyList.Items.Add(row);}dailyList.EndUpdate();
         sessionList.BeginUpdate();sessionList.Items.Clear();foreach(var x in data.Sessions.OrderByDescending(x=>x.Start).Take(200)){var i=new ListViewItem(x.Start.ToString("yyyy-MM-dd"));i.SubItems.Add(x.Start.ToString("HH:mm:ss"));i.SubItems.Add(x.End?.ToString("HH:mm:ss")??"현재 사용 중");i.SubItems.Add(Format(((x.End??x.LastSeen)-x.Start).TotalSeconds));sessionList.Items.Add(i);}sessionList.EndUpdate();LoadSecurity();
