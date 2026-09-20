@@ -20,7 +20,12 @@ public sealed class MainForm:Form
         state.Text="● 정상 기록 중";state.ForeColor=Color.FromArgb(92,225,164);state.Font=new Font("Malgun Gothic",13,FontStyle.Bold);state.Location=new Point(38,66);state.Size=new Size(380,30);header.Controls.Add(state);
         var manage=BigButton("관리 설정",150);manage.Anchor=AnchorStyles.Top|AnchorStyles.Right;manage.Location=new Point(930,27);manage.Click+=(s,e)=>OpenSettings();header.Controls.Add(manage);header.Resize+=(s,e)=>manage.Left=header.ClientSize.Width-184;
         var tabs=new TabControl{Dock=DockStyle.Fill,Font=new Font("Malgun Gothic",12,FontStyle.Bold),Padding=new Point(20,9)};Controls.Add(tabs);
-        var dash=Page("한눈에 보기"),apps=Page("프로그램별 기록"),daily=Page("일별 기록"),sessions=Page("PC 켠 기록"),protect=Page("보호 기록");tabs.TabPages.AddRange([dash,apps,daily,sessions,protect]);
+        var dash=Page("한눈에 보기");
+        var apps=Page("프로그램별 기록");
+        var daily=Page("일별 기록");
+        var sessions=Page("PC 켠 기록");
+        var protect=Page("보호 기록");
+        tabs.TabPages.AddRange([dash,apps,daily,sessions,protect]);
         BuildDashboard(dash);BuildListPage(apps,appList,"오늘 사용한 프로그램",[("사용한 프로그램",600),("실제 사용시간",280)]);BuildListPage(daily,dailyList,"최근 30일 사용 기록",[("날짜",170),("PC 켠 시간",220),("실제 사용시간",220),("처음 켠 시각",180),("마지막 종료",180)]);BuildListPage(sessions,sessionList,"PC를 켜고 끈 기록",[("날짜",150),("켠 시각",180),("끈 시각",180),("켜져 있던 시간",230)]);BuildListPage(protect,securityList,"종료·삭제·설정 변경 시도 기록",[("날짜와 시각",230),("시도한 작업",380),("결과",300)]);
     }
     TabPage Page(string text)=>new(text){BackColor=page,Padding=new Padding(22)};
